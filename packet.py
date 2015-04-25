@@ -136,11 +136,19 @@ class I3Packet:
         return I3Packet._encode(data)
 
     @classmethod
-    def mudmode(cls, text: str):
+    def to_mudmode(cls, text: str):
         raw_bytes = bytes(text, 'cp1252') + struct.pack('!B', 0)
         raw_bytelen = len(raw_bytes)
         bytestream = struct.pack('!L', raw_bytelen) + raw_bytes
         return bytestream
+
+    @classmethod
+    def from_mudmode(cls, raw_bytes: bytes):
+        expected_len = struct.unpack('!L', raw_bytes[0:4])[0]
+        if len(raw_bytes) != expected_len + 4:
+            raise(ValueError, 'Expected %d bytes, got %d', (expected_len + 4, len(raw_bytes) + 4))
+        text = raw_bytes[4:-1].decode('cp1252')
+        return text
 
     @classmethod
     def validate_data(cls, data):
@@ -159,47 +167,47 @@ class I3Packet:
             raise TypeError('Element 4 must be the target name string or 0, not %r', type(data[4]))
         return data
 
-    def __init__(self, text: str=None, data=None):
-        if text is not None:
-            self._text = text
-            self._bytestream = I3Packet.mudmode(self._text)
+    def __init__(self, raw_text: str=None, raw_bytestream: bytes=None, raw_data=None):
+        self._text = None
+        self._bytestream = None
+        self._data = None
 
-        if data is not None:
-            self._data = I3Packet.validate_data(data)
+        if raw_text is not None:
+            self.text = raw_text
+        elif raw_bytestream is not None:
+            self.bytestream = raw_bytestream
+        elif raw_data is not None:
+            self.data = raw_data
 
     @property
     def text(self):
-        if self._text is None:
-            self._text = I3Packet.encode(self._data)
-            self._bytestream = I3Packet.mudmode(self._text)
         return self._text
 
     @text.setter
-    def text(self, text: str):
-        self._text = text
-        self._bytestream = I3Packet.mudmode(self._text)
+    def text(self, raw_text: str):
+        self._text = raw_text
+        self._bytestream = I3Packet.to_mudmode(self._text)
+        self._data = I3Packet.i3Value.parseString(self._text)[0]
+
+    @property
+    def bytestream(self):
+        return self._bytestream
+
+    @bytestream.setter
+    def bytestream(self, raw_bytestream: bytes):
+        self._bytestream = raw_bytestream
+        self._text = I3Packet.from_mudmode(raw_bytestream)
         self._data = I3Packet.i3Value.parseString(self._text)[0]
 
     @property
     def data(self):
-        if self._data is None:
-            self._data = I3Packet.i3Value.parseString(self._text)[0]
-            self._bytestream = I3Packet.mudmode(self._text)
         return self._data
 
     @data.setter
-    def data(self, data):
-        self._data = I3Packet.validate_data(data)
+    def data(self, raw_data):
+        self._data = I3Packet.validate_data(raw_data)
         self._text = I3Packet.encode(self._data)
-        self._bytestream = I3Packet.mudmode(self._text)
-
-    @property
-    def bytestream(self):
-        if self._text is None:
-            self._text = I3Packet.encode(self._data)
-            self._bytestream = I3Packet.mudmode(self._text)
-        return self._bytestream
-
+        self._bytestream = I3Packet.to_mudmode(self._text)
 
 if __name__ == '__main__':
     testdata = """
