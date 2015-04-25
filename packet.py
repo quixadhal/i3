@@ -13,9 +13,10 @@ def unescape_string(s, l, toks):
     """
     n = toks[0]
     n = n.replace('\\"', '"')
-    n = n.replace('\\\\', '\\')
     n = n.replace('\\r', '\r')
     n = n.replace('\\n', '\n')
+    n = n.replace('\\x00', '\x00')
+    n = n.replace('\\\\', '\\')
     n = n[1:-1]
     return n
 
@@ -30,6 +31,7 @@ def escape_string(s):
     n = n.replace('"', '\\"')
     n = n.replace('\r', '\\r"')
     n = n.replace('\n', '\\n"')
+    n = n.replace('\x00', '\\x00"')
     n = '"' + n + '"'
     return n
 
@@ -135,10 +137,27 @@ class I3Packet:
 
     @classmethod
     def mudmode(cls, text: str):
-        raw_bytes = bytes(text, 'cp1252')
-        raw_bytelen = len(raw_bytes) + 4
+        raw_bytes = bytes(text, 'cp1252') + struct.pack('!B', 0)
+        raw_bytelen = len(raw_bytes)
         bytestream = struct.pack('!L', raw_bytelen) + raw_bytes
         return bytestream
+
+    @classmethod
+    def validate_data(cls, data):
+        if str(type(data)) != "<class 'list'>":
+            raise TypeError('Data must be passed in as an array, not %r', type(data))
+        if len(data) < 6:
+            raise ValueError('Packets require at least 6 elements, not %d', len(data))
+        if str(type(data[0])) != "<class 'str'>":
+            raise TypeError('Element 0 must be a packet type string, not %r', type(data[0]))
+        data[1] = 5
+        if str(type(data[2])) not in ("<class 'str'>", "<class 'int'>"):
+            raise TypeError('Element 2 must be the mud name string or 0, not %r', type(data[2]))
+        if str(type(data[3])) not in ("<class 'str'>", "<class 'int'>"):
+            raise TypeError('Element 3 must be the user name string or 0, not %r', type(data[3]))
+        if str(type(data[4])) not in ("<class 'str'>", "<class 'int'>"):
+            raise TypeError('Element 4 must be the target name string or 0, not %r', type(data[4]))
+        return data
 
     def __init__(self, text: str=None, data=None):
         if text is not None:
@@ -146,9 +165,7 @@ class I3Packet:
             self._bytestream = I3Packet.mudmode(self._text)
 
         if data is not None:
-            if str(type(data)) != "<class 'list'>":
-                raise TypeError('Data must be passed in as an array, not %r', type(data))
-            self._data = data
+            self._data = I3Packet.validate_data(data)
 
     @property
     def text(self):
@@ -172,11 +189,7 @@ class I3Packet:
 
     @data.setter
     def data(self, data):
-        if str(type(data)) != "<class 'list'>":
-            raise TypeError('Data must be passed in as an array, not %r', type(data))
-        if len(data) < 6:
-            raise ValueError('Packets require at least 6 elements, not %d', len(data))
-        self._data = data
+        self._data = I3Packet.validate_data(data)
         self._text = I3Packet.encode(self._data)
         self._bytestream = I3Packet.mudmode(self._text)
 
