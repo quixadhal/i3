@@ -34,7 +34,7 @@ def escape_string(s):
     return n
 
 
-def to_i3number(s, l, toks):
+def from_i3number(s, l, toks):
     """
     Convert an I3 "number" to an int or float for python.
     :param s: passed in from callback
@@ -47,40 +47,6 @@ def to_i3number(s, l, toks):
         return int(n)
     except ValueError:
         return float(n)
-
-
-def _encode(data):
-    if str(type(data)) == "<class 'list'>":
-        x = []
-        for k in data:
-            x.append(_encode(k))
-        n = '({' + ','.join(x) + '})'
-        return n
-    elif str(type(data)) == 'Dict':
-        x = dict()
-        for k, v in data:
-            a = _encode(k)
-            b = _encode(v)
-            x[a] = b
-        n = '([' + ','.join(x) + '])'
-        return n
-    elif str(type(data)) == "<class 'str'>":
-        return escape_string(data)
-    else:
-        return str(data)
-
-
-def encode(data):
-    if str(type(data)) != "<class 'list'>":
-        raise TypeError('Data must be passed in as an array, not %r', type(data))
-    return _encode(data)
-
-
-def mudmode(text: str):
-    raw_bytes = bytes(text, 'cp1252')
-    raw_bytelen = len(raw_bytes) + 4
-    bytestream = struct.pack('!L', raw_bytelen) + raw_bytes
-    return bytestream
 
 
 class I3Packet:
@@ -108,7 +74,7 @@ class I3Packet:
     i3Number = Combine(Optional('-') + ( '0' | Word('123456789', nums) ) +
                        Optional('.' + Word(nums)) +
                        Optional(Word('eE', exact=1) + Word(nums + '+-', nums)))
-    i3Number.setParseAction(to_i3number)
+    i3Number.setParseAction(from_i3number)
 
     i3Map = Forward()
     i3Value = Forward()
@@ -120,10 +86,44 @@ class I3Packet:
     i3Members = delimitedList(memberDef)
     i3Map << Dict(Suppress('([') + Optional(i3Members) + Suppress('])'))
 
+    @classmethod
+    def _encode(cls, data):
+        if str(type(data)) == "<class 'list'>":
+            x = []
+            for k in data:
+                x.append(I3Packet._encode(k))
+            n = '({' + ','.join(x) + '})'
+            return n
+        elif str(type(data)) == 'Dict':
+            x = dict()
+            for k, v in data:
+                a = I3Packet._encode(k)
+                b = I3Packet._encode(v)
+                x[a] = b
+            n = '([' + ','.join(x) + '])'
+            return n
+        elif str(type(data)) == "<class 'str'>":
+            return escape_string(data)
+        else:
+            return str(data)
+
+    @classmethod
+    def encode(cls, data):
+        if str(type(data)) != "<class 'list'>":
+            raise TypeError('Data must be passed in as an array, not %r', type(data))
+        return I3Packet._encode(data)
+
+    @classmethod
+    def mudmode(cls, text: str):
+        raw_bytes = bytes(text, 'cp1252')
+        raw_bytelen = len(raw_bytes) + 4
+        bytestream = struct.pack('!L', raw_bytelen) + raw_bytes
+        return bytestream
+
     def __init__(self, text: str=None, data=None):
         if text is not None:
             self._text = text
-            self._bytestream = mudmode(self._text)
+            self._bytestream = I3Packet.mudmode(self._text)
 
         if data is not None:
             if str(type(data)) != "<class 'list'>":
@@ -133,21 +133,21 @@ class I3Packet:
     @property
     def text(self):
         if self._text is None:
-            self._text = encode(self._data)
-            self._bytestream = mudmode(self._text)
+            self._text = I3Packet.encode(self._data)
+            self._bytestream = I3Packet.mudmode(self._text)
         return self._text
 
     @text.setter
     def text(self, text: str):
         self._text = text
-        self._bytestream = mudmode(self._text)
+        self._bytestream = I3Packet.mudmode(self._text)
         self._data = I3Packet.i3Value.parseString(self._text)[0]
 
     @property
     def data(self):
         if self._data is None:
             self._data = I3Packet.i3Value.parseString(self._text)[0]
-            self._bytestream = mudmode(self._text)
+            self._bytestream = I3Packet.mudmode(self._text)
         return self._data
 
     @data.setter
@@ -157,14 +157,14 @@ class I3Packet:
         if len(data) < 6:
             raise ValueError('Packets require at least 6 elements, not %d', len(data))
         self._data = data
-        self._text = encode(self._data)
-        self._bytestream = mudmode(self._text)
+        self._text = I3Packet.encode(self._data)
+        self._bytestream = I3Packet.mudmode(self._text)
 
     @property
     def bytestream(self):
         if self._text is None:
-            self._text = encode(self._data)
-            self._bytestream = mudmode(self._text)
+            self._text = I3Packet.encode(self._data)
+            self._bytestream = I3Packet.mudmode(self._text)
         return self._bytestream
 
 
