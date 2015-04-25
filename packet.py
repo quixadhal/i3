@@ -50,6 +50,26 @@ def from_i3number(s, l, toks):
 
 
 class I3Packet:
+    """
+    This class encapsulates the basic encoding and decoding of I3 packet strings.
+
+    To decode a packet, simply initialize a class instance with the extracted text,
+    or assign it via the text parameter.  The data member will be an array containing
+    the extracted elements.
+
+    To encode a data chunk for I3 trasmission, simply pass the array of elements in to
+    the initializer, or assign via the data parameter.  The text member will contain the
+    text to be sent.  The mudmode member will contain a byte-encoded version with the
+    leading binary length data for a "mudmode" socket.
+
+    If you just need the mudmode encoding of a preformatted string, just assign as with the
+    decode operation and use the mudmode method to get it.
+
+    Decoding was implemented using pyparsing for simplicity.  Encoding is a simple recursion.
+
+    NOTE: Only simple data types are handled.  Attempting to pass in an object will fail
+    unless the object has a proper __repr__ method to return a string form of itself.
+    """
     i3_packet_bnf = """
     map
         ([ members ])
@@ -194,4 +214,3 @@ if __name__ == '__main__':
     pprint.pprint(packet.text)
     print("Mudmode:")
     pprint.pprint(packet.bytestream)
-
