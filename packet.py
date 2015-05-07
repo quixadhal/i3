@@ -1,6 +1,12 @@
+# -*- coding: utf-8 -*- line endings: unix -*-
+__author__ = 'quixadhal'
+
 from pyparsing import *
 import pprint
 import struct
+import log_system
+
+logger = log_system.init_logging()
 
 
 def unescape_string(s, l, toks):
