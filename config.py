@@ -12,6 +12,8 @@ logger = log_system.init_logging()
 class Config(DataBase):
     __tablename__ = 'config'
     router_name = Column(String, primary_key=True)
+    router_addr = Column(String)
+    router_port = Column(Integer)
     password = Column(Integer)
     mudlist_id = Column(Integer)
     chanlist_id = Column(Integer)
@@ -27,6 +29,8 @@ class Config(DataBase):
     def __repr__(self):
         return "<Config(" + \
                "router_name = '%s'," \
+               "router_addr = '%s'," \
+               "router_port = %d," \
                "password = %d," \
                "mudlist_id = %d," \
                "chanlist_id = %d," \
@@ -40,6 +44,8 @@ class Config(DataBase):
                "admin_email = '%s'," \
                ")>" % (
                    self.router_name,
+                   self.router_addr,
+                   self.router_port,
                    self.password,
                    self.mudlist_id,
                    self.chanlist_id,
@@ -58,7 +64,9 @@ def setup_default():
     logger.info('Initializing default config entry')
     session = Session()
     config = Config()
-    config.router_name = '*i4'
+    config.router_name = '*dalet'
+    config.router_addr = '97.107.133.86'
+    config.router_port = 8787
     config.password = 0
     config.mudlist_id = 0
     config.chanlist_id = 0
